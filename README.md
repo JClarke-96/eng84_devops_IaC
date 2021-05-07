@@ -277,5 +277,5 @@ sudo service mongod start
 - `./provision.sh` run the provision file on host machine to setup app
 
 #### Ansible
-- `ansible --ask-vault-pass web -a "./provision.sh""` to run provision.sh on web after copying
+- `ansible --ask-vault-pass web -a "./provision.sh"` to run provision.sh on web after copying
 	

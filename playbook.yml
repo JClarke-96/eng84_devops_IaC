@@ -1,0 +1,69 @@
+# AWS playbook
+---
+
+- hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars:
+    key_name: eng84devops
+    image: ami-038d7b856fe7557b3
+    pub_sec_group: sg-06052d3134fbbaefb
+    priv_sec_group: sg-03104e6b72c4567db
+    pub_subnet_id: subnet-0785252fae57f41a7
+    priv_subnet_id: subnet-0b267cbc34d8f43c7
+    region: eu-west-1
+
+  tasks:
+    - name: Facts
+      block:
+
+        - name: Get instances facts
+          ec2_instance_facts:
+            aws_access_key: "{{aws_access_key}}"
+            aws_secret_key: "{{aws_secret_key}}"
+            region: "{{ region }}"
+          register: result
+
+        - name: Instances ID
+          debug:
+            msg: "ID: {{ item.instance_id }} - State: {{ item.state.name }} - Public DNS: {{ item.public_dns_name }}"
+          loop: "{{ result.instances }}"
+
+      tags: always
+
+    - name: Provisioning EC2 instances
+      block:
+
+      - name: Provision app instance
+        ec2:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          assign_public_ip: true
+          key_name: "{{ key_name }}"
+          vpc_subnet_id: "{{ pub_subnet_id }}"
+          group_id: "{{ pub_sec_group }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: true
+          count: 1
+          instance_tags:
+            Name: eng84_jordan_app_ansible
+
+      - name: Provision db
+        ec2:
+          aws_access_key: "{{aws_access_key}}"
+          aws_secret_key: "{{aws_secret_key}}"
+          key_name: "{{ key_name }}"
+          vpc_subnet_id: "{{ priv_subnet_id }}"
+          group_id: "{{ priv_sec_group }}"
+          image: "{{ image }}"
+          instance_type: t2.micro
+          region: "{{ region }}"
+          wait: true
+          count: 1
+          instance_tags:
+            Name: eng84_jordan_db_ansible
+
+      tags: ['never', 'create_ec2']
