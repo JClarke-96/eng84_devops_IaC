@@ -93,105 +93,78 @@ Ansible is an IT automation engine that automates cloud provisioning, configurat
 	- `aws_secret_key: SECRETKEY`
 	- `esc :wq enter`
 
+# Ansible & AWS Task
 ## Create an EC2 instance using Ansible
 ### Set up a controller EC2
 - Start up a public EC2 instance
 - SSH into the new controller instance
 - `sudo apt install python`
-- `sudo apt install python-pip`
-- `pip install boto boto3`
+- `sudo apt-get install software-properties-common`
 - `sudo apt-add-repository ppa:ansible/ansible`
 - `sudo apt-get update -y`
+- `sudo apt install python-pip`
+- `pip install boto boto3`
 - `sudo apt-get install ansible`
 - `ansible --version` check correct version (2.9.21)
 
-### Ansible directory and Vault for keys
+### Ansible Vault & EC2 Instances
 - `mkdir -p AWS_Ansible/group_vars/all/`
 - `cd AWS_Ansible`
-- `touch playbook.yml`
+- Create playbook.yml
+  - `touch playbook.yml` to create new playbook `sudo nano playbook.yml` to later edit
+  - `scp -i ~/.ssh/eng84devops.pem -r playbook.yml ubuntu@ip:~/AWS_Ansible/playbook.yml` to copy playbook.yml
 - `ansible-vault create group_vars/all/pass.yml` create vault
-	- See above for vault key syntax
-
-### Playbook.yml
-- `sudo nano playbook.yml`
-```
-# AWS playbook
----
-
-- hosts: localhost
-  connection: local
-  gather_facts: False
-
-  vars:
-    key_name: eng84devops
-    image: ami-038d7b856fe7557b3
-    pub_sec_group: sg-06052d3134fbbaefb
-    priv_sec_group: sg-03104e6b72c4567db
-    pub_subnet_id: subnet-0785252fae57f41a7
-    priv_subnet_id: subnet-0b267cbc34d8f43c7
-    region: eu-west-1
-
-  tasks:
-    - name: Facts
-      block:
-
-        - name: Get instances facts
-          ec2_instance_facts:
-            aws_access_key: "{{aws_access_key}}"
-            aws_secret_key: "{{aws_secret_key}}"
-            region: "{{ region }}"
-          register: result
-
-        - name: Instances ID
-          debug:
-            msg: "ID: {{ item.instance_id }} - State: {{ item.state.name }} - Public DNS: {{ item.public_dns_name }}"
-          loop: "{{ result.instances }}"
-
-      tags: always
-
-    - name: Provisioning EC2 instances
-      block:
-
-      - name: Provision app instance
-        ec2:
-          aws_access_key: "{{aws_access_key}}"
-          aws_secret_key: "{{aws_secret_key}}"
-          assign_public_ip: true
-          key_name: "{{ key_name }}"
-          id: "jordan_app_1"
-          vpc_subnet_id: "{{ pub_subnet_id }}"
-          group_id: "{{ pub_sec_group }}"
-          image: "{{ image }}"
-          instance_type: t2.micro
-          region: "{{ region }}"
-          wait: true
-          count: 1
-          instance_tags:
-            Name: eng84_jordan_app_ansible
-
-      - name: Provision db
-        ec2:
-          aws_access_key: "{{aws_access_key}}"
-          aws_secret_key: "{{aws_secret_key}}"
-          key_name: "{{ key_name }}"
-          id: "jordan_db_1"
-          vpc_subnet_id: "{{ priv_subnet_id }}"
-          group_id: "{{ priv_sec_group }}"
-          image: "{{ image }}"
-          instance_type: t2.micro
-          region: "{{ region }}"
-          wait: true
-          count: 1
-          instance_tags:
-            Name: eng84_jordan_db_ansible
-
-      tags: ['never', 'create_ec2']
-```
+	- `aws_access_key: ACCESSKEY`
+  - `aws_secret_key: SECRETKEY`
+  - `esc :wq enter`
 - `ansible-playbook playbook.yml --ask-vault-pass` to provision instances
 - `ansible-playbook playbook.yml --ask-vault-pass --tags create_ec2` to create EC2 instance
-- `ssh -i ~/.ssh/my_aws ubuntu@DNS` to SSH into instance (check DNS with line to provision instances)
 
 ## Set up 2 tier architecture
+### Connect EC2 instances to controller
+- `scp -i ~/.ssh/eng84devops.pem -r eng84devops.pem ubuntu@ip:~/.ssh/eng84devops.pem` secure copy keys to controller
+- `chmod 400 .ssh` to secure keys to only be readable by the owner
+- Ensure security groups for EC2 instances allow controller to access them
+- Test EC2 instance and keys using SSH
+  - `sudo ssh -i ".ssh/eng84devops.pem" ubuntu@private_ip` to ssh into a machine
+- Update hosts file to use python and add EC2 connection
+```
+[local]
+localhost ansible_python_interpreter=/usr/bin/python3
+
+[web]
+web_private_ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng84devops.pem
+
+[db]
+db_private_ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng84devops.pem
+```
+- `sudo ansible web -a "command" --ask-vault-pass` will now run a specified command on the web EC2
+
+### Add content & run provisions
+- `scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@public_ip:~/app/` to copy app info to controller
+- `sudo scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@private_ip:~/app/` to copy app info to EC2
+- `scp -i ~/.ssh/eng84devops.pem -r provision.sh ubuntu@public_ip:~/provision.sh` copy both provisions to controller
+- `sudo scp -i ~/.ssh/eng84devops.pem -r provision.sh ubuntu@private_ip:~/provision.sh` copy provisions to relevant EC2
+- `sudo ansible all -a "ls" --ask-vault-pass` to check files in EC2
+- Convert dos2unix for both files
+  - `sudo ansible web -a "wget "http://ftp.de.debian.org/debian/pool/main/d/dos2unix/dos2unix_6.0.4-1_amd64.deb"" --ask-vault-pass`
+  - `sudo ansible web -a "sudo dpkg -i dos2unix_6.0.4-1_amd64.deb" --ask-vault-pass`
+  - `sudo ansible web -a "dos2unix provision.sh" --ask-vault-pass`
+- `sudo ansible web -a "./provision.sh" --ask-vault-pass`
+
+
+
+
+- `sudo ssh -i "eng84devops.pem" ubuntu@private_ip` to check provisions correctly copied
+- `chmod +x provision.sh` change permissions on provision file
+- `./provision.sh` run the provision file on host machine to setup app
+
+#### Ansible
+- `ansible --ask-vault-pass web -a "./provision.sh"` to run provision.sh on web after copying
+
+
+
+
 ### Set up provision files on controller
 - `sudo nano app_provision.sh` to create app provision
 ```
@@ -227,17 +200,17 @@ npm install /home/ubuntu/app/app
 nodejs /home/ubuntu/app/app/seeds/seed.js
 
 sudo echo "server {
-	listen 80;
-	
-	server_name _;
-	
-	location / {
-		proxy_pass http://localhost:3000;
-    	proxy_http_version 1.1;
-    	proxy_set_header Upgrade \$http_upgrade;
-    	proxy_set_header Connection 'upgrade';
-    	proxy_set_header Host \$host;
-    	proxy_cache_bypass \$http_upgrade;
+  listen 80;
+  
+  server_name _;
+  
+  location / {
+    proxy_pass http://localhost:3000;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade \$http_upgrade;
+      proxy_set_header Connection 'upgrade';
+      proxy_set_header Host \$host;
+      proxy_cache_bypass \$http_upgrade;
     }
 }" | sudo tee /etc/nginx/sites-available/default
 ```
@@ -263,19 +236,3 @@ sudo sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongod.conf
 sudo systemctl enable mongod
 sudo service mongod start
 ```
-
-### Copy and run provision files on EC2 instances
-- Secure copy keys from host machine to controller instance to access created instances
-- `scp -i ~/.ssh/eng84devops.pem -r eng84devops.pem ubuntu@ip:~/eng84devops.pem`
-- Update hosts file as above with public ip for created instances
-- Secure copy app files from controller to other machines
-- `sudo scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@ip:~/app/`
-- Secure copy provision files from controller to other machines
-- `scp -i ~/.ssh/eng84devops.pem -r name_provision.sh ubuntu@ip:~/filename/`
-- `sudo ssh -i "eng84devops.pem" ubuntu@private_ip` to check provisions correctly copied
-- `chmod +x provision.sh` change permissions on provision file
-- `./provision.sh` run the provision file on host machine to setup app
-
-#### Ansible
-- `ansible --ask-vault-pass web -a "./provision.sh"` to run provision.sh on web after copying
-	
