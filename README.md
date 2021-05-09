@@ -142,12 +142,14 @@ db_private_ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng84devop
 
 ### Add content & run provisions
 - `scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@public_ip:~/app/` to copy app info to controller
-- `sudo scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@private_ip:~/app/` to copy app info to EC2
-- `scp -i ~/.ssh/eng84devops.pem -r provision.sh ubuntu@public_ip:~/provision.sh` copy both provisions to controller
-- `sudo scp -i ~/.ssh/eng84devops.pem -r provision.sh ubuntu@private_ip:~/provision.sh` copy provisions to relevant EC2
-- `sudo ansible all -a "ls" --ask-vault-pass` to check files in EC2
+- Copy all files needed to run (app, environment, ect)
+- `scp -i ~/.ssh/eng84devops.pem -r provision.sh ubuntu@public_ip:~/app_provision.sh` to copy provisions to app folder on controller
 - Convert dos2unix for both files
-  - `sudo ansible web -a "wget "http://ftp.de.debian.org/debian/pool/main/d/dos2unix/dos2unix_6.0.4-1_amd64.deb"" --ask-vault-pass`
-  - `sudo ansible web -a "sudo dpkg -i dos2unix_6.0.4-1_amd64.deb" --ask-vault-pass`
-  - `sudo ansible web -a "dos2unix provision.sh" --ask-vault-pass`
+  - `wget "http://ftp.de.debian.org/debian/pool/main/d/dos2unix/dos2unix_6.0.4-1_amd64.deb"`
+  - `sudo dpkg -i dos2unix_6.0.4-1_amd64.deb`
+  - `dos2unix provision.sh` for both provisions
+- `sudo scp -i ~/.ssh/eng84devops.pem -r app/ ubuntu@private_ip:~/app/` to copy app info to EC2
+- `sudo ssh -i ".ssh/eng84devops.pem" ubuntu@private_ip` to ssh into a machine
+- `sudo ansible all -a "ls" --ask-vault-pass` to check files in EC2
 - `sudo ansible web -a "./provision.sh" --ask-vault-pass`
+- `sudo ansible web -a "nodejs app/app.js"
