@@ -152,4 +152,4 @@ db_private_ip ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/eng84devop
 - `sudo ssh -i ".ssh/eng84devops.pem" ubuntu@private_ip` to ssh into a machine
 - `sudo ansible all -a "ls" --ask-vault-pass` to check files in EC2
 - `sudo ansible web -a "./provision.sh" --ask-vault-pass`
-- `sudo ansible web -a "nodejs app/app.js"
+- `sudo ansible web -a "nodejs app/app.js"`

@@ -20,4 +20,3 @@ pip install boto boto3
 # install ansible
 sudo apt-get install ansible
 ansible --version
--
